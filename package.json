@@ -1,0 +1,17 @@
+{
+  "name": "stockportfolio",
+  "version": "1.0.0",
+  "description": "A smart contract for keeping track of a stock portfolio",
+  "main": "truffle-config.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "author": "Adam Flesher",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.10"
+  }
+}
