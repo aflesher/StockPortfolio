@@ -47,16 +47,21 @@ contract StockPortfolio is Ownable {
         external
         onlyOwner
     {
-        _trade(_symbol, false, _quantity, _price);
-        Position storage position = positions[_symbol];
-        if (position.quantity == 0) {
-            _addHolding(_symbol);
-        }
-        position.avgPrice = ((position.quantity * position.avgPrice) + (_quantity * _price)) /
-            (position.quantity + _quantity);
-        position.quantity += _quantity;
+        _buy(_symbol, _quantity, _price);
+    }
 
-        emit Bought(_symbol, _quantity, _price);
+    function bulkBuy
+    (
+        bytes8[] _symbol,
+        uint32[] _quantity,
+        uint32[] _price
+    )
+        external
+        onlyOwner
+    {
+        for (uint i = 0; i < _symbol.length; i++) {
+            _buy(_symbol[i], _quantity[i], _price[i]);
+        }
     }
 
     function split
@@ -110,6 +115,20 @@ contract StockPortfolio is Ownable {
         onlyOwner
     {
         _sell(_symbol, _quantity, _price);
+    }
+
+    function bulkSell
+    (
+        bytes8[] _symbol,
+        uint32[] _quantity,
+        uint32[] _price
+    )
+        external
+        onlyOwner
+    {
+        for (uint i = 0; i < _symbol.length; i++) {
+            _sell(_symbol[i], _quantity[i], _price[i]);
+        }
     }
 
     function getTradesCount() public view returns(uint) {
@@ -278,6 +297,26 @@ contract StockPortfolio is Ownable {
         profits += profit;
         _trade(_symbol, true, _quantity, _price);
         emit Sold(_symbol, _quantity, _price, profit);
+    }
+
+    function _buy
+    (
+        bytes8 _symbol,
+        uint32 _quantity,
+        uint32 _price
+    )
+        private
+    {
+        _trade(_symbol, false, _quantity, _price);
+        Position storage position = positions[_symbol];
+        if (position.quantity == 0) {
+            _addHolding(_symbol);
+        }
+        position.avgPrice = ((position.quantity * position.avgPrice) + (_quantity * _price)) /
+            (position.quantity + _quantity);
+        position.quantity += _quantity;
+
+        emit Bought(_symbol, _quantity, _price);
     }
 
 }

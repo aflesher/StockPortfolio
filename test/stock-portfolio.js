@@ -111,5 +111,37 @@ contract('StockPortfolio', async (accounts) => {
     await sp.sell(web3.toHex(sell3.symbol), sell3.quantity, sell3.price * 100);
     let profits3 = await sp.profits.call();
     assert.equal(profits3.toNumber() / 100, expectedProfits, 'negative profits');
-  });  
+  });
+
+  it('should accept multi buys', async () => {
+
+    let buys = [
+      {symbol: 'ACB.TO', quantity: 800, price: 8.18},
+      {symbol: 'TSLA', quantity: 27, price: 291.72},
+      {symbol: 'GOOGL', quantity: 9, price: 1077.47},
+      {symbol: 'TTWO', quantity: 100, price: 110.63},
+      {symbol: 'RY.TO', quantity: 185, price: 96.79}
+    ]
+
+    let symbols = _.map(buys, (stock) => {return web3.toHex(stock.symbol);});
+    let quantities = _.map(buys, 'quantity');
+    let prices = _.map(buys, (stock) => { return Math.round(stock.price * 100);});
+
+    await sp.bulkBuy(symbols, quantities, prices);
+
+    _.each(buys, async (stock, index) => {
+      let position = await sp.getPosition(web3.toHex(stock.symbol));
+      assert.equal(position[0].toNumber(), stock.quantity, 'quantity set');
+      assert.equal(position[1].toNumber(), Math.round(stock.price * 100), 'price set');
+  
+      let trade = await sp.getTrade(index);
+      assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+      assert.isFalse(trade[1], 'is not a sell');
+      assert.equal(trade[2].toNumber(), stock.quantity, 'quantity');
+      assert.equal(trade[3].toNumber(), Math.round(stock.price * 100), 'price');
+  
+      let holding = await sp.getHolding(index);
+      assert.equal(web3.toAscii(holding).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    });
+  });
 });
