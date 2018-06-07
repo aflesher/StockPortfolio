@@ -2,6 +2,14 @@ pragma solidity ^0.4.23;
 
 import "./Ownable.sol";
 
+/**
+  * @title StockPortfolio
+  * @author aflesher
+  * @dev StockPortfolio is smart contract for keeping a record
+  * @dev stock purchases. Trades can more or less be validated
+  * @dev using the trade timestamp and comparing the data to
+  * @dev historical values.
+  */
 contract StockPortfolio is Ownable {
 
     struct Trade {
@@ -38,6 +46,12 @@ contract StockPortfolio is Ownable {
 
     function () public payable {}
 
+    /**
+     * @dev Adds a new position/trade
+     * @param _symbol A stock symbol
+     * @param _quantity Quantity of shares to buy
+     * @param _price Price per share * 100 ($10.24 = 1024)
+     */
     function buy
     (
         bytes8 _symbol,
@@ -50,20 +64,31 @@ contract StockPortfolio is Ownable {
         _buy(_symbol, _quantity, _price);
     }
 
+    /**
+     * @dev Adds a series of positions/trades
+     * @param _symbols Stock symbols
+     * @param _quantities Quantities of shares to buy
+     * @param _prices Prices per share * 100 ($10.24 = 1024)
+     */
     function bulkBuy
     (
-        bytes8[] _symbol,
-        uint32[] _quantity,
-        uint32[] _price
+        bytes8[] _symbols,
+        uint32[] _quantities,
+        uint32[] _prices
     )
         external
         onlyOwner
     {
-        for (uint i = 0; i < _symbol.length; i++) {
-            _buy(_symbol[i], _quantity[i], _price[i]);
+        for (uint i = 0; i < _symbols.length; i++) {
+            _buy(_symbols[i], _quantities[i], _prices[i]);
         }
     }
 
+    /**
+     * @dev Tracks a stock split
+     * @param _symbol A stock symbol
+     * @param _multiple Number of new shares per share created
+     */
     function split
     (
         bytes8 _symbol,
@@ -82,6 +107,12 @@ contract StockPortfolio is Ownable {
         emit ForwardSplit(_symbol, _multiple);
     }
 
+    /**
+     * @dev Tracks a reverse stock split
+     * @param _symbol A stock symbol
+     * @param _divisor Number of existing shares that will equal 1 new share
+     * @param _price The current stock price. Remainder shares will sold at this price
+     */
     function reverseSplit
     (
         bytes8 _symbol,
@@ -105,6 +136,12 @@ contract StockPortfolio is Ownable {
         emit ReverseSplit(_symbol, _divisor);
     }
 
+    /**
+     * @dev Sells a position, adds a new trade and adds profits/lossses
+     * @param _symbol Stock symbol
+     * @param _quantity Quantity of shares to sale
+     * @param _price Price per share * 100 ($10.24 = 1024)
+     */
     function sell
     (
         bytes8 _symbol,
@@ -117,17 +154,23 @@ contract StockPortfolio is Ownable {
         _sell(_symbol, _quantity, _price);
     }
 
+    /**
+     * @dev Sells positions, adds a new trades and adds profits/lossses
+     * @param _symbols Stock symbols
+     * @param _quantities Quantities of shares to sale
+     * @param _prices Prices per share * 100 ($10.24 = 1024)
+     */
     function bulkSell
     (
-        bytes8[] _symbol,
-        uint32[] _quantity,
-        uint32[] _price
+        bytes8[] _symbols,
+        uint32[] _quantities,
+        uint32[] _prices
     )
         external
         onlyOwner
     {
-        for (uint i = 0; i < _symbol.length; i++) {
-            _sell(_symbol[i], _quantity[i], _price[i]);
+        for (uint i = 0; i < _symbols.length; i++) {
+            _sell(_symbols[i], _quantities[i], _prices[i]);
         }
     }
 
