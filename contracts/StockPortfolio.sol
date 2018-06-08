@@ -13,7 +13,7 @@ import "./Ownable.sol";
 contract StockPortfolio is Ownable {
 
     struct Trade {
-        bytes8 symbol;
+        bytes10 symbol;
         bool isSell;
         uint32 quantity;
         uint32 price;
@@ -21,7 +21,7 @@ contract StockPortfolio is Ownable {
     }
 
     struct Split {
-        bytes8 symbol;
+        bytes10 symbol;
         bool isReverse;
         uint8 spread;
         uint256 timestamp;
@@ -34,13 +34,13 @@ contract StockPortfolio is Ownable {
 
     Trade[] private trades;
     Split[] private splits;
-    mapping (bytes8 => Position) positions;
-    bytes8[] private holdings;
+    mapping (bytes10 => Position) positions;
+    bytes10[] private holdings;
 
-    event Bought(bytes8 symbol, uint32 quantity, uint32 price);
-    event Sold(bytes8 symbol, uint32 quantity, uint32 price, int64 profits);
-    event ForwardSplit(bytes8 symbol, uint8 mulitple);
-    event ReverseSplit(bytes8 symbol, uint8 divisor);
+    event Bought(bytes10 symbol, uint32 quantity, uint32 price);
+    event Sold(bytes10 symbol, uint32 quantity, uint32 price, int64 profits);
+    event ForwardSplit(bytes10 symbol, uint8 mulitple);
+    event ReverseSplit(bytes10 symbol, uint8 divisor);
 
     int public profits;
 
@@ -54,7 +54,7 @@ contract StockPortfolio is Ownable {
      */
     function buy
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint32 _quantity,
         uint32 _price
     )
@@ -72,7 +72,7 @@ contract StockPortfolio is Ownable {
      */
     function bulkBuy
     (
-        bytes8[] _symbols,
+        bytes10[] _symbols,
         uint32[] _quantities,
         uint32[] _prices
     )
@@ -91,7 +91,7 @@ contract StockPortfolio is Ownable {
      */
     function split
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint8 _multiple
     )
         external
@@ -115,7 +115,7 @@ contract StockPortfolio is Ownable {
      */
     function reverseSplit
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint8 _divisor,
         uint32 _price
     )
@@ -144,7 +144,7 @@ contract StockPortfolio is Ownable {
      */
     function sell
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint32 _quantity,
         uint32 _price
     )
@@ -162,7 +162,7 @@ contract StockPortfolio is Ownable {
      */
     function bulkSell
     (
-        bytes8[] _symbols,
+        bytes10[] _symbols,
         uint32[] _quantities,
         uint32[] _prices
     )
@@ -185,7 +185,7 @@ contract StockPortfolio is Ownable {
         public
         view
         returns(
-            bytes8 symbol,
+            bytes10 symbol,
             bool isSell,
             uint32 quantity,
             uint32 price,
@@ -202,7 +202,7 @@ contract StockPortfolio is Ownable {
 
     function getPosition
     (
-        bytes8 _symbol
+        bytes10 _symbol
     )
         public
         view
@@ -221,7 +221,7 @@ contract StockPortfolio is Ownable {
         return holdings.length;
     }
 
-    function getHolding(uint _index) public view returns(bytes8) {
+    function getHolding(uint _index) public view returns(bytes10) {
         return holdings[_index];
     }
 
@@ -236,7 +236,7 @@ contract StockPortfolio is Ownable {
         public
         view
         returns(
-            bytes8 symbol,
+            bytes10 symbol,
             bool isReverse,
             uint8 spread,
             uint256 timestamp
@@ -251,7 +251,7 @@ contract StockPortfolio is Ownable {
 
     function _addHolding
     (
-        bytes8 _symbol
+        bytes10 _symbol
     )
         private
     {
@@ -260,7 +260,7 @@ contract StockPortfolio is Ownable {
 
     function _removeHolding
     (
-        bytes8 _symbol
+        bytes10 _symbol
     )
         private
     {
@@ -285,7 +285,7 @@ contract StockPortfolio is Ownable {
 
     function _trade
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         bool _isSell,
         uint32 _quantity,
         uint32 _price
@@ -305,7 +305,7 @@ contract StockPortfolio is Ownable {
 
     function _split
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         bool _isReverse,
         uint8 _spread
     )
@@ -323,7 +323,7 @@ contract StockPortfolio is Ownable {
 
     function _sell
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint32 _quantity,
         uint32 _price
     )
@@ -344,7 +344,7 @@ contract StockPortfolio is Ownable {
 
     function _buy
     (
-        bytes8 _symbol,
+        bytes10 _symbol,
         uint32 _quantity,
         uint32 _price
     )
