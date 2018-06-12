@@ -217,6 +217,25 @@ contract StockPortfolio is Ownable {
         avgPrice = position.avgPrice;
     }
 
+    function getPositionFromHolding
+    (
+        uint _index
+    )
+        public
+        view
+        returns
+        (
+            bytes10 symbol,
+            uint32 quantity,
+            uint32 avgPrice
+        )
+    {
+        symbol = holdings[_index];
+        Position storage position = positions[symbol];
+        quantity = position.quantity;
+        avgPrice = position.avgPrice;
+    }
+
     function getHoldingsCount() public view returns(uint) {
         return holdings.length;
     }
