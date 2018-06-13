@@ -1,6 +1,10 @@
 var StockPortfolio = artifacts.require('StockPortfolio'),
   _ = require('lodash');
 
+const toAsciiClean = (hex) => {
+  return web3.toAscii(hex).replace(/\u0000/g, '');
+}
+
 contract('StockPortfolio', async (accounts) => {
 
   beforeEach('deploy new contract', async () => {
@@ -64,90 +68,78 @@ contract('StockPortfolio', async (accounts) => {
   });
 
   it('should track profits', async () => {
-    let buy = {
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 187.50
-    };
+    let stock = this.stocks[0];
+    let profit = Math.round(stock.price * 1.1); // 10%
+    let sellPrice = stock.price + profit;
 
-    let sell = {
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 287.50
-    }
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, sellPrice * 100);
 
-    await sp.buy(web3.toHex(buy.symbol), buy.quantity, buy.price * 100);
-    await sp.sell(web3.toHex(sell.symbol), sell.quantity, sell.price * 100);
-    let expectedProfits = (sell.quantity * sell.price) - (buy.quantity * buy.price);
-    let profits = await sp.profits.call();
+    let expectedProfits = profit * stock.quantity;
+    let profits = await this.sp.getProfits(this.markets[stock.market].hex);
     assert.equal(Math.round(profits.toNumber() / 100), expectedProfits, 'profits');
 
-    let buy2 = {
-      symbol: 'NTDOY',
-      quantity: 8,
-      price: 51.31
-    };
+    let sellQuantity = Math.round(stock.quantity / 2); // half
 
-    let sell2 = {
-      symbol: 'NTDOY',
-      quantity: 4,
-      price: 24.50
-    }
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), sellQuantity, sellPrice * 100);
 
-    expectedProfits += ((sell2.quantity * sell2.price) - (sell2.quantity * buy2.price));
-    await sp.buy(web3.toHex(buy2.symbol), buy2.quantity, buy2.price * 100);
-    await sp.sell(web3.toHex(sell2.symbol), sell2.quantity, sell2.price * 100);
-    let profits2 = await sp.profits.call();
-    assert.equal(profits2.toNumber() / 100, expectedProfits, 'profits');
+    let nextExpectedProfits = expectedProfits + (profit * sellQuantity);
+    let nextProfits = await this.sp.getProfits(this.markets[stock.market].hex);
+    assert.equal(Math.round(nextProfits.toNumber() / 100), nextExpectedProfits, 'profits');
+  });
 
-    let buy3 = {
-      symbol: 'DS.V',
-      quantity: 8000,
-      price: .20
-    };
+  it('should track losses', async () => {
+    let stock = this.stocks[0];
+    let profit = Math.round(stock.price * 0.9); // 10%
+    let sellPrice = stock.price + profit;
 
-    let sell3 = {
-      symbol: 'DS.V',
-      quantity: 8000,
-      price: .01
-    }
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, sellPrice * 100);
 
-    expectedProfits += ((sell3.quantity * sell3.price) - (sell3.quantity * buy3.price));
-    await sp.buy(web3.toHex(buy3.symbol), buy3.quantity, buy3.price * 100);
-    await sp.sell(web3.toHex(sell3.symbol), sell3.quantity, sell3.price * 100);
-    let profits3 = await sp.profits.call();
-    assert.equal(profits3.toNumber() / 100, expectedProfits, 'negative profits');
+    let expectedProfits = profit * stock.quantity;
+    let profits = await this.sp.getProfits(this.markets[stock.market].hex);
+    assert.equal(Math.round(profits.toNumber() / 100), expectedProfits, 'profits');
+  });
+
+  it('should track partial profits', async () => {
+    let stock = this.stocks[0];
+    let profit = Math.round(stock.price * 1.1); // 10%
+    let sellQuantity = Math.round(stock.quantity / 2); // half
+    let sellPrice = stock.price + profit;
+
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), sellQuantity, sellPrice * 100);
+
+    let expectedProfits = profit * sellQuantity;
+    let profits = await this.sp.getProfits(this.markets[stock.market].hex);
+    assert.equal(Math.round(profits.toNumber() / 100), expectedProfits, 'profits');
   });
 
   it('should accept multi buys', async () => {
+    let stocks = this.stocks.slice(0, 3);
+    let markets = this.markets;
+    let marketIndexes = _.map(stocks, (stock) => {return markets[stock.market].index; });
+    let symbols = _.map(stocks, (stock) => {return web3.toHex(stock.symbol);});
+    let quantities = _.map(stocks, 'quantity');
+    let prices = _.map(stocks, (stock) => { return Math.round(stock.price * 100);});
 
-    let buys = [
-      {symbol: 'ACB.TO', quantity: 800, price: 8.18},
-      {symbol: 'TSLA', quantity: 27, price: 291.72},
-      {symbol: 'GOOGL', quantity: 9, price: 1077.47},
-      {symbol: 'TTWO', quantity: 100, price: 110.63},
-      {symbol: 'RY.TO', quantity: 185, price: 96.79}
-    ]
+    await this.sp.bulkBuy(marketIndexes, symbols, quantities, prices);
 
-    let symbols = _.map(buys, (stock) => {return web3.toHex(stock.symbol);});
-    let quantities = _.map(buys, 'quantity');
-    let prices = _.map(buys, (stock) => { return Math.round(stock.price * 100);});
-
-    await sp.bulkBuy(symbols, quantities, prices);
-
-    _.each(buys, async (stock, index) => {
-      let position = await sp.getPosition(web3.toHex(stock.symbol));
+    for (let index = 0; index < stocks.length; index++) {
+      let stock = stocks[index];
+      let position = await this.sp.getPosition(stock.key);
       assert.equal(position[0].toNumber(), stock.quantity, 'quantity set');
       assert.equal(position[1].toNumber(), Math.round(stock.price * 100), 'price set');
   
-      let trade = await sp.getTrade(index);
-      assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
-      assert.isFalse(trade[1], 'is not a sell');
-      assert.equal(trade[2].toNumber(), stock.quantity, 'quantity');
-      assert.equal(trade[3].toNumber(), Math.round(stock.price * 100), 'price');
+      let trade = await this.sp.getTrade(index);
+      assert.equal(toAsciiClean(trade[1]), stock.symbol, 'symbol');
+      assert.isFalse(trade[2], 'is not a sell');
+      assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
+      assert.equal(trade[4].toNumber(), Math.round(stock.price * 100), 'price');
   
-      let holding = await sp.getHolding(index);
-      assert.equal(web3.toAscii(holding).replace(/\u0000/g, ''), stock.symbol, 'symbol');
-    });
+      let holding = await this.sp.getHolding(index);
+      assert.equal(holding, stock.key, 'key');
+    }
   });
 });

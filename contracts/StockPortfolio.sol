@@ -46,9 +46,7 @@ contract StockPortfolio is Ownable {
     event ForwardSplit(bytes4 market, bytes6 symbol, uint8 mulitple);
     event ReverseSplit(bytes4 market, bytes6 symbol, uint8 divisor);
 
-    // profits need to be separated into CAD/USD
-    int public profits;
-    mapping (bytes4 => int) private profitsPerMarket;
+    mapping (bytes4 => int) public profits;
 
     constructor () public {
         markets.push(0x6e797365); //nyse 0
@@ -204,6 +202,10 @@ contract StockPortfolio is Ownable {
 
     function getMarket(uint _index) public view returns(bytes4) {
         return markets[_index];
+    }
+
+    function getProfits(bytes4 _market) public view returns(int) {
+        return profits[_market];
     }
 
     function getTradesCount() public view returns(uint) {
@@ -427,7 +429,7 @@ contract StockPortfolio is Ownable {
             _removeHolding(stockKey);
             delete positions[stockKey];
         }
-        profits += profit;
+        profits[market] += profit;
         _trade(_marketIndex, _symbol, true, _quantity, _price);
         emit Sold(market, _symbol, _quantity, _price, profit);
     }
