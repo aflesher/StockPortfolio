@@ -16,13 +16,13 @@ contract('StockPortfolio', async (accounts) => {
       let market = await this.sp.getMarket(index);
       this.markets[web3.toAscii(market).replace(/\u0000/g, '')] = { hex: market, index};
     }
-    this.stocks = [
-      {market: 'tsx', symbol: 'acb', quantity: 800, price: 8.18},
-      {market: 'nyse', symbol: 'tsla', quantity: 27, price: 291.72},
-      {market: 'nyse', symbol: 'googl', quantity: 9, price: 1077.47},
-      {market: 'nyse', symbol: 'ttwo', quantity: 100, price: 110.63},
-      {market: 'tsx', symbol: 'ry', quantity: 185, price: 96.79}
-    ];
+    this.acb = {market: 'tsx', symbol: 'acb', quantity: 800, price: 8.18};
+    this.tsla = {market: 'nasdaq', symbol: 'tsla', quantity: 27, price: 291.72};
+    this.googl = {market: 'nasdaq', symbol: 'googl', quantity: 9, price: 1077.47};
+    this.ttwo = {market: 'nasdaq', symbol: 'ttwo', quantity: 100, price: 110.63};
+    this.ry = {market: 'tsx', symbol: 'ry', quantity: 185, price: 96.79};
+    this.dis = {market: 'nyse', symbol: 'dis', quantity: 50, price: 103.00};
+    this.stocks = [this.acb, this.tsla, this.ttwo, this.ry, this.dis];
 
     for (let index = 0; index < this.stocks.length; index++) {
       let stock = this.stocks[index];
