@@ -2,6 +2,7 @@ pragma solidity ^0.4.23;
 
 import "./Ownable.sol";
 
+
 /**
   * @title StockPortfolio
   * @author aflesher
@@ -36,8 +37,8 @@ contract StockPortfolio is Ownable {
 
     Trade[] private trades;
     Split[] private splits;
-    mapping (bytes4 => Position) positions;
-    bytes4[] private holdings;
+    mapping (bytes10 => Position) positions;
+    bytes10[] private holdings;
     bytes4[] private markets;
 
     event Bought(bytes4 market, bytes6 symbol, uint32 quantity, uint32 price);
@@ -47,9 +48,9 @@ contract StockPortfolio is Ownable {
 
     // profits need to be separated into CAD/USD
     int public profits;
-    mapping (bytes => int) profitsPerMarket;
+    mapping (bytes4 => int) private profitsPerMarket;
 
-    constructor () {
+    constructor () public {
         markets.push(0x6e797365); //nyse 0
         markets.push(0x6e736471); //nsdq 1
         markets.push(0x74737800); //tsx 2
@@ -95,7 +96,7 @@ contract StockPortfolio is Ownable {
         onlyOwner
     {
         for (uint i = 0; i < _symbols.length; i++) {
-            _buy(markets[_marketIndexes[i]], _symbols[i], _quantities[i], _prices[i]);
+            _buy(_marketIndexes[i], _symbols[i], _quantities[i], _prices[i]);
         }
     }
 
@@ -114,11 +115,11 @@ contract StockPortfolio is Ownable {
         onlyOwner
     {
         bytes4 market = markets[_marketIndex];
-        bytes4 key = stockKey(market, _symbol);
-        Position storage position = positions[key];
+        bytes10 stockKey = getStockKey(market, _symbol);
+        Position storage position = positions[stockKey];
         require(position.quantity > 0);
         uint32 quantity = (_multiple * position.quantity) - position.quantity;
-        _split(_symbol, false, _multiple);
+        _split(_marketIndex, _symbol, false, _multiple);
         position.avgPrice = (position.quantity * position.avgPrice) / (position.quantity + quantity);
         position.quantity += quantity;
 
@@ -133,25 +134,28 @@ contract StockPortfolio is Ownable {
      */
     function reverseSplit
     (
-        bytes10 _symbol,
+        uint8 _marketIndex,
+        bytes6 _symbol,
         uint8 _divisor,
         uint32 _price
     )
         external
         onlyOwner
     {
-        Position storage position = positions[_symbol];
+        bytes4 market = markets[_marketIndex];
+        bytes10 stockKey = getStockKey(market, _symbol);
+        Position storage position = positions[stockKey];
         require(position.quantity > 0);
         uint32 quantity = position.quantity / _divisor;
         uint32 extraQuantity = position.quantity - (quantity * _divisor);
         if (extraQuantity > 0) {
-            _sell(_symbol, extraQuantity, _price);
+            _sell(_marketIndex, _symbol, extraQuantity, _price);
         }
-        _split(_symbol, true, _divisor);
+        _split(_marketIndex, _symbol, true, _divisor);
         position.avgPrice = position.avgPrice * _divisor;
         position.quantity = quantity;
 
-        emit ReverseSplit(_symbol, _divisor);
+        emit ReverseSplit(market, _symbol, _divisor);
     }
 
     /**
@@ -162,14 +166,15 @@ contract StockPortfolio is Ownable {
      */
     function sell
     (
-        bytes10 _symbol,
+        uint8 _marketIndex,
+        bytes6 _symbol,
         uint32 _quantity,
         uint32 _price
     )
         external
         onlyOwner
     {
-        _sell(_symbol, _quantity, _price);
+        _sell(_marketIndex, _symbol, _quantity, _price);
     }
 
     /**
@@ -180,7 +185,8 @@ contract StockPortfolio is Ownable {
      */
     function bulkSell
     (
-        bytes10[] _symbols,
+        uint8[] _marketIndexes,
+        bytes6[] _symbols,
         uint32[] _quantities,
         uint32[] _prices
     )
@@ -188,8 +194,16 @@ contract StockPortfolio is Ownable {
         onlyOwner
     {
         for (uint i = 0; i < _symbols.length; i++) {
-            _sell(_symbols[i], _quantities[i], _prices[i]);
+            _sell(_marketIndexes[i], _symbols[i], _quantities[i], _prices[i]);
         }
+    }
+
+    function getMarketsCount() public view returns(uint) {
+        return markets.length;
+    }
+
+    function getMarket(uint _index) public view returns(bytes4) {
+        return markets[_index];
     }
 
     function getTradesCount() public view returns(uint) {
@@ -203,7 +217,8 @@ contract StockPortfolio is Ownable {
         public
         view
         returns(
-            bytes10 symbol,
+            bytes4 market,
+            bytes6 symbol,
             bool isSell,
             uint32 quantity,
             uint32 price,
@@ -211,6 +226,7 @@ contract StockPortfolio is Ownable {
         )
     {
         Trade storage trade = trades[_index];
+        market = markets[trade.marketIndex];
         symbol = trade.symbol;
         isSell = trade.isSell;
         quantity = trade.quantity;
@@ -220,7 +236,7 @@ contract StockPortfolio is Ownable {
 
     function getPosition
     (
-        bytes10 _symbol
+        bytes10 _stockKey
     )
         public
         view
@@ -230,7 +246,7 @@ contract StockPortfolio is Ownable {
             uint32 avgPrice
         )
     {
-        Position storage position = positions[_symbol];
+        Position storage position = positions[_stockKey];
         quantity = position.quantity;
         avgPrice = position.avgPrice;
     }
@@ -243,13 +259,15 @@ contract StockPortfolio is Ownable {
         view
         returns
         (
-            bytes10 symbol,
+            bytes4 market, 
+            bytes6 symbol,
             uint32 quantity,
             uint32 avgPrice
         )
     {
-        symbol = holdings[_index];
-        Position storage position = positions[symbol];
+        bytes10 stockKey = holdings[_index];
+        (market, symbol) = recoverStockKey(stockKey);
+        Position storage position = positions[stockKey];
         quantity = position.quantity;
         avgPrice = position.avgPrice;
     }
@@ -286,7 +304,7 @@ contract StockPortfolio is Ownable {
         timestamp = aSplit.timestamp;
     }
 
-    function stockKey(bytes4 _market, bytes6 _symbol) public pure returns (bytes4) {
+    function getStockKey(bytes4 _market, bytes6 _symbol) public pure returns (bytes10 key) {
         bytes memory combined = new bytes(10);
         for (uint i = 0; i < 4; i++) {
             combined[i] = _market[i];
@@ -294,12 +312,29 @@ contract StockPortfolio is Ownable {
         for (uint j = 0; j < 6; j++) {
             combined[j + 4] = _symbol[j];
         }
-        return bytes4(keccak256(combined)); 
+        assembly {
+            key := mload(add(combined, 32))
+        }
+    }
+    
+    function recoverStockKey(bytes10 _key) public pure returns(bytes4 market, bytes6 symbol) {
+        bytes memory _market = new bytes(4);
+        bytes memory _symbol = new bytes(6);
+        for (uint i = 0; i < 4; i++) {
+            _market[i] = _key[i];
+        }
+        for (uint j = 0; j < 6; j++) {
+            _symbol[j] = _key[j + 4];
+        }
+        assembly {
+            market := mload(add(_market, 32))
+            symbol := mload(add(_symbol, 32))
+        }
     }
 
     function _addHolding
     (
-        bytes4 _stockKey
+        bytes10 _stockKey
     )
         private
     {
@@ -308,7 +343,7 @@ contract StockPortfolio is Ownable {
 
     function _removeHolding
     (
-        bytes4 _stockKey
+        bytes10 _stockKey
     )
         private
     {
@@ -382,37 +417,42 @@ contract StockPortfolio is Ownable {
     )
         private
     {
-        Position storage position = positions[_symbol];
+        bytes4 market = markets[_marketIndex];
+        bytes10 stockKey = getStockKey(market, _symbol);
+        Position storage position = positions[stockKey];
         require(position.quantity >= _quantity);
         int64 profit = int64(_quantity * _price) - int64(_quantity * position.avgPrice);
         position.quantity -= _quantity;
         if (position.quantity <= 0) {
-            _removeHolding(_symbol);
-            delete positions[_symbol];
+            _removeHolding(stockKey);
+            delete positions[stockKey];
         }
         profits += profit;
-        _trade(_symbol, true, _quantity, _price);
-        emit Sold(_symbol, _quantity, _price, profit);
+        _trade(_marketIndex, _symbol, true, _quantity, _price);
+        emit Sold(market, _symbol, _quantity, _price, profit);
     }
 
     function _buy
     (
-        bytes10 _symbol,
+        uint8 _marketIndex,
+        bytes6 _symbol,
         uint32 _quantity,
         uint32 _price
     )
         private
     {
-        _trade(_symbol, false, _quantity, _price);
-        Position storage position = positions[_symbol];
+        bytes4 market = markets[_marketIndex];
+        bytes10 stockKey = getStockKey(market, _symbol);
+        _trade(_marketIndex, _symbol, false, _quantity, _price);
+        Position storage position = positions[stockKey];
         if (position.quantity == 0) {
-            _addHolding(_symbol);
+            _addHolding(stockKey);
         }
         position.avgPrice = ((position.quantity * position.avgPrice) + (_quantity * _price)) /
             (position.quantity + _quantity);
         position.quantity += _quantity;
 
-        emit Bought(_symbol, _quantity, _price);
+        emit Bought(market, _symbol, _quantity, _price);
     }
 
 }

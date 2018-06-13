@@ -2,59 +2,65 @@ var StockPortfolio = artifacts.require('StockPortfolio'),
   _ = require('lodash');
 
 contract('StockPortfolio', async (accounts) => {
-  var sp;
 
   beforeEach('deploy new contract', async () => {
-    sp = await StockPortfolio.new();
+    this.sp = await StockPortfolio.new();
+    let marketsCount = await this.sp.getMarketsCount();
+    marketsCount = marketsCount.toNumber();
+    this.markets = {};
+    for (let index = 0; index < marketsCount; index++) {
+      let market = await this.sp.getMarket(index);
+      this.markets[web3.toAscii(market).replace(/\u0000/g, '')] = { hex: market, index};
+    }
+    this.stocks = [
+      {market: 'tsx', symbol: 'acb', quantity: 800, price: 8.18},
+      {market: 'nyse', symbol: 'tsla', quantity: 27, price: 291.72},
+      {market: 'nyse', symbol: 'googl', quantity: 9, price: 1077.47},
+      {market: 'nyse', symbol: 'ttwo', quantity: 100, price: 110.63},
+      {market: 'tsx', symbol: 'ry', quantity: 185, price: 96.79}
+    ];
+
+    for (let index = 0; index < this.stocks.length; index++) {
+      let stock = this.stocks[index];
+      stock.key = await this.sp.getStockKey(web3.toHex(stock.market), web3.toHex(stock.symbol));
+    }
   });
 
   it('should add holdings', async () => {
-    let stock = {
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 187.50
-    };
-
-    await sp.buy(web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
-    let position = await sp.getPosition(web3.toHex(stock.symbol));
+    let stock = this.stocks[0];
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    let position = await this.sp.getPosition(stock.key);
     assert.equal(position[0].toNumber(), stock.quantity, 'quantity set');
     assert.equal(position[1].toNumber(), stock.price * 100, 'price set');
 
-    let trade = await sp.getTrade(0);
-    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
-    assert.isFalse(trade[1], 'is not a sell');
-    assert.equal(trade[2].toNumber(), stock.quantity, 'quantity');
-    assert.equal(trade[3].toNumber(), stock.price * 100, 'price');
+    let trade = await this.sp.getTrade(0);
+    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.market, 'market');
+    assert.equal(web3.toAscii(trade[1]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    assert.isFalse(trade[2], 'is not a sell');
+    assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
+    assert.equal(trade[4].toNumber(), stock.price * 100, 'price');
 
-    let holding = await sp.getHolding(0);
-    assert.equal(web3.toAscii(holding).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    let holding = await this.sp.getHolding(0);
+    assert.equal(holding, stock.key, 'stock key');
   });
 
   it('should track sells', async () => {
-    let buy = {
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 187.50
-    };
+    let stock = this.stocks[1];
+    let sellPrice = stock.price + 50;
 
-    let sell = {
-      symbol: 'AAPL',
-      quantity: 10,
-      price: 287.50
-    }
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, sellPrice * 100);
 
-    await sp.buy(web3.toHex(buy.symbol), buy.quantity, buy.price * 100);
-    await sp.sell(web3.toHex(sell.symbol), sell.quantity, sell.price * 100);
-
-    let position = await sp.getPosition(web3.toHex(sell.symbol));
+    let position = await this.sp.getPosition(stock.key);
     assert.equal(position[0].toNumber(), 0, 'quantity set');
     assert.equal(position[1].toNumber(), 0, 'price set');
 
-    let trade = await sp.getTrade(1);
-    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), sell.symbol, 'symbol');
-    assert.isTrue(trade[1], 'is a sell');
-    assert.equal(trade[2].toNumber(), sell.quantity, 'quantity');
-    assert.equal(trade[3].toNumber(), sell.price * 100, 'price');
+    let trade = await this.sp.getTrade(1);
+    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.market, 'market');
+    assert.equal(web3.toAscii(trade[1]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    assert.isTrue(trade[2], 'is a sell');
+    assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
+    assert.equal(trade[4].toNumber(), sellPrice * 100, 'price');
   });
 
   it('should track profits', async () => {
