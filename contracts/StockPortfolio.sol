@@ -54,6 +54,7 @@ contract StockPortfolio is Ownable {
         markets.push(0x747378000000); //tsx 2
         markets.push(0x747378760000); //tsxv 3
         markets.push(0x6f7463000000); //otc 4
+        markets.push(0x637365000000); //cse 5
     }
 
     function () public payable {}
@@ -332,6 +333,10 @@ contract StockPortfolio is Ownable {
             market := mload(add(_market, 32))
             symbol := mload(add(_symbol, 32))
         }
+    }
+
+    function addMarket(bytes6 _market) public onlyOwner {
+        markets.push(_market);
     }
 
     function _addHolding
