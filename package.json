@@ -12,6 +12,7 @@
   "author": "Adam Flesher",
   "license": "ISC",
   "dependencies": {
-    "lodash": "^4.17.10"
+    "lodash": "^4.17.10",
+    "openzeppelin-solidity": "1.10.0"
   }
 }
