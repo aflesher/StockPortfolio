@@ -32,17 +32,16 @@ contract('StockPortfolio', async (accounts) => {
 
   it('should add holdings', async () => {
     let stock = this.stocks[0];
-    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    let buyTransaction = await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
     let position = await this.sp.getPosition(stock.key);
     assert.equal(position[0].toNumber(), stock.quantity, 'quantity set');
     assert.equal(position[1].toNumber(), stock.price * 100, 'price set');
 
-    let trade = await this.sp.getTrade(0);
-    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.market, 'market');
-    assert.equal(web3.toAscii(trade[1]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
-    assert.isFalse(trade[2], 'is not a sell');
-    assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
-    assert.equal(trade[4].toNumber(), stock.price * 100, 'price');
+    let trade = buyTransaction.logs[0].args;
+    assert.equal(web3.toAscii(trade.market).replace(/\u0000/g, ''), stock.market, 'market');
+    assert.equal(web3.toAscii(trade.symbol).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    assert.equal(trade.quantity.toNumber(), stock.quantity, 'quantity');
+    assert.equal(trade.price.toNumber(), stock.price * 100, 'price');
 
     let holding = await this.sp.getHolding(0);
     assert.equal(holding, stock.key, 'stock key');
@@ -53,18 +52,17 @@ contract('StockPortfolio', async (accounts) => {
     let sellPrice = stock.price + 50;
 
     await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
-    await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, sellPrice * 100);
+    let sellTransaction = await this.sp.sell(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, sellPrice * 100);
 
     let position = await this.sp.getPosition(stock.key);
     assert.equal(position[0].toNumber(), 0, 'quantity set');
     assert.equal(position[1].toNumber(), 0, 'price set');
 
-    let trade = await this.sp.getTrade(1);
-    assert.equal(web3.toAscii(trade[0]).replace(/\u0000/g, ''), stock.market, 'market');
-    assert.equal(web3.toAscii(trade[1]).replace(/\u0000/g, ''), stock.symbol, 'symbol');
-    assert.isTrue(trade[2], 'is a sell');
-    assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
-    assert.equal(trade[4].toNumber(), sellPrice * 100, 'price');
+    let trade = sellTransaction.logs[0].args;
+    assert.equal(web3.toAscii(trade.market).replace(/\u0000/g, ''), stock.market, 'market');
+    assert.equal(web3.toAscii(trade.symbol).replace(/\u0000/g, ''), stock.symbol, 'symbol');
+    assert.equal(trade.quantity.toNumber(), stock.quantity, 'quantity');
+    assert.equal(trade.price.toNumber(), sellPrice * 100, 'price');
   });
 
   it('should track profits', async () => {
@@ -124,7 +122,7 @@ contract('StockPortfolio', async (accounts) => {
     let quantities = _.map(stocks, 'quantity');
     let prices = _.map(stocks, (stock) => { return Math.round(stock.price * 100);});
 
-    await this.sp.bulkBuy(marketIndexes, symbols, quantities, prices);
+    let buyTransaction = await this.sp.bulkBuy(marketIndexes, symbols, quantities, prices);
 
     for (let index = 0; index < stocks.length; index++) {
       let stock = stocks[index];
@@ -132,11 +130,11 @@ contract('StockPortfolio', async (accounts) => {
       assert.equal(position[0].toNumber(), stock.quantity, 'quantity set');
       assert.equal(position[1].toNumber(), Math.round(stock.price * 100), 'price set');
   
-      let trade = await this.sp.getTrade(index);
-      assert.equal(toAsciiClean(trade[1]), stock.symbol, 'symbol');
-      assert.isFalse(trade[2], 'is not a sell');
-      assert.equal(trade[3].toNumber(), stock.quantity, 'quantity');
-      assert.equal(trade[4].toNumber(), Math.round(stock.price * 100), 'price');
+      let trade = buyTransaction.logs[index].args;
+      assert.equal(toAsciiClean(trade.market), stock.market, 'market');
+      assert.equal(toAsciiClean(trade.symbol), stock.symbol, 'symbol');
+      assert.equal(trade.quantity.toNumber(), stock.quantity, 'quantity');
+      assert.equal(trade.price.toNumber(), Math.round(stock.price * 100), 'price');
   
       let holding = await this.sp.getHolding(index);
       assert.equal(holding, stock.key, 'key');

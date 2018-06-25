@@ -13,38 +13,19 @@ import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
   */
 contract StockPortfolio is Ownable {
 
-    struct Trade {
-        bytes6 symbol;
-        bool isSell;
-        uint8 marketIndex;
-        uint32 quantity;
-        uint32 price;
-        uint256 timestamp;
-    }
-
-    struct Split {
-        bytes6 symbol;
-        bool isReverse;
-        uint8 marketIndex;
-        uint8 spread;
-        uint256 timestamp;
-    }
-
     struct Position {
         uint32 quantity;
         uint32 avgPrice;
     }
 
-    Trade[] private trades;
-    Split[] private splits;
     mapping (bytes12 => Position) positions;
     bytes12[] private holdings;
     bytes6[] private markets;
 
-    event Bought(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price);
-    event Sold(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price, int64 profits);
-    event ForwardSplit(bytes6 market, bytes6 symbol, uint8 mulitple);
-    event ReverseSplit(bytes6 market, bytes6 symbol, uint8 divisor);
+    event Bought(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price, uint256 timestamp);
+    event Sold(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price, int64 profits, uint256 timestamp);
+    event ForwardSplit(bytes6 market, bytes6 symbol, uint8 mulitple, uint256 timestamp);
+    event ReverseSplit(bytes6 market, bytes6 symbol, uint8 divisor, uint256 timestamp);
 
     mapping (bytes6 => int) public profits;
 
@@ -118,11 +99,10 @@ contract StockPortfolio is Ownable {
         Position storage position = positions[stockKey];
         require(position.quantity > 0);
         uint32 quantity = (_multiple * position.quantity) - position.quantity;
-        _split(_marketIndex, _symbol, false, _multiple);
         position.avgPrice = (position.quantity * position.avgPrice) / (position.quantity + quantity);
         position.quantity += quantity;
 
-        emit ForwardSplit(market, _symbol, _multiple);
+        emit ForwardSplit(market, _symbol, _multiple, now);
     }
 
     /**
@@ -150,11 +130,10 @@ contract StockPortfolio is Ownable {
         if (extraQuantity > 0) {
             _sell(_marketIndex, _symbol, extraQuantity, _price);
         }
-        _split(_marketIndex, _symbol, true, _divisor);
         position.avgPrice = position.avgPrice * _divisor;
         position.quantity = quantity;
 
-        emit ReverseSplit(market, _symbol, _divisor);
+        emit ReverseSplit(market, _symbol, _divisor, now);
     }
 
     /**
@@ -209,34 +188,6 @@ contract StockPortfolio is Ownable {
         return profits[_market];
     }
 
-    function getTradesCount() public view returns(uint) {
-        return trades.length;
-    }
-
-    function getTrade
-    (
-        uint _index
-    )
-        public
-        view
-        returns(
-            bytes6 market,
-            bytes6 symbol,
-            bool isSell,
-            uint32 quantity,
-            uint32 price,
-            uint256 timestamp
-        )
-    {
-        Trade storage trade = trades[_index];
-        market = markets[trade.marketIndex];
-        symbol = trade.symbol;
-        isSell = trade.isSell;
-        quantity = trade.quantity;
-        price = trade.price;
-        timestamp = trade.timestamp;
-    }
-
     function getPosition
     (
         bytes12 _stockKey
@@ -281,30 +232,6 @@ contract StockPortfolio is Ownable {
 
     function getHolding(uint _index) public view returns(bytes12) {
         return holdings[_index];
-    }
-
-    function getSplitsCount() public view returns(uint) {
-        return splits.length;
-    }
-
-    function getSplit
-    (
-        uint _index
-    )
-        public
-        view
-        returns(
-            bytes12 symbol,
-            bool isReverse,
-            uint8 spread,
-            uint256 timestamp
-        )
-    {
-        Split storage aSplit = splits[_index];
-        symbol = aSplit.symbol;
-        isReverse = aSplit.isReverse;
-        spread = aSplit.spread;
-        timestamp = aSplit.timestamp;
     }
 
     function getStockKey(bytes6 _market, bytes6 _symbol) public pure returns (bytes12 key) {
@@ -373,48 +300,6 @@ contract StockPortfolio is Ownable {
         }
     }
 
-    function _trade
-    (
-        uint8 _marketIndex,
-        bytes6 _symbol,
-        bool _isSell,
-        uint32 _quantity,
-        uint32 _price
-    )
-        private
-    {
-        trades.push(
-            Trade({
-                symbol: _symbol,
-                isSell: _isSell,
-                marketIndex: _marketIndex,
-                quantity: _quantity,
-                price: _price,
-                timestamp: now
-            })
-        );
-    }
-
-    function _split
-    (
-        uint8 _marketIndex,
-        bytes6 _symbol,
-        bool _isReverse,
-        uint8 _spread
-    )
-        private
-    {
-        splits.push(
-            Split({
-                symbol: _symbol,
-                isReverse: _isReverse,
-                marketIndex: _marketIndex,
-                spread: _spread,
-                timestamp: now
-            })
-        );
-    }
-
     function _sell
     (
         uint8 _marketIndex,
@@ -435,8 +320,7 @@ contract StockPortfolio is Ownable {
             delete positions[stockKey];
         }
         profits[market] += profit;
-        _trade(_marketIndex, _symbol, true, _quantity, _price);
-        emit Sold(market, _symbol, _quantity, _price, profit);
+        emit Sold(market, _symbol, _quantity, _price, profit, now);
     }
 
     function _buy
@@ -450,7 +334,6 @@ contract StockPortfolio is Ownable {
     {
         bytes6 market = markets[_marketIndex];
         bytes12 stockKey = getStockKey(market, _symbol);
-        _trade(_marketIndex, _symbol, false, _quantity, _price);
         Position storage position = positions[stockKey];
         if (position.quantity == 0) {
             _addHolding(stockKey);
@@ -459,7 +342,7 @@ contract StockPortfolio is Ownable {
             (position.quantity + _quantity);
         position.quantity += _quantity;
 
-        emit Bought(market, _symbol, _quantity, _price);
+        emit Bought(market, _symbol, _quantity, _price, now);
     }
 
 }
