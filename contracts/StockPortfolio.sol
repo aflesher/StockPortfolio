@@ -27,6 +27,9 @@ contract StockPortfolio is Ownable {
     event ForwardSplit(bytes6 market, bytes6 symbol, uint8 mulitple, uint256 timestamp);
     event ReverseSplit(bytes6 market, bytes6 symbol, uint8 divisor, uint256 timestamp);
 
+    // Profits have to be separated because of different curriences so
+    // separate them by market. Market profit to currency can be worked
+    // out by client
     mapping (bytes6 => int) public profits;
 
     constructor () public {
@@ -41,7 +44,8 @@ contract StockPortfolio is Ownable {
     function () public payable {}
 
     /**
-     * @dev Adds a new position/trade
+     * @dev Adds to or creates new position
+     * @param _marketIndex The index of the market
      * @param _symbol A stock symbol
      * @param _quantity Quantity of shares to buy
      * @param _price Price per share * 100 ($10.24 = 1024)
@@ -60,7 +64,8 @@ contract StockPortfolio is Ownable {
     }
 
     /**
-     * @dev Adds a series of positions/trades
+     * @dev Adds to or creates a series of positions
+     * @param _marketIndexes The indexes of the markets
      * @param _symbols Stock symbols
      * @param _quantities Quantities of shares to buy
      * @param _prices Prices per share * 100 ($10.24 = 1024)
@@ -82,6 +87,7 @@ contract StockPortfolio is Ownable {
 
     /**
      * @dev Tracks a stock split
+     * @param _marketIndex The index of the market
      * @param _symbol A stock symbol
      * @param _multiple Number of new shares per share created
      */
@@ -107,6 +113,7 @@ contract StockPortfolio is Ownable {
 
     /**
      * @dev Tracks a reverse stock split
+     * @param _marketIndex The index of the market
      * @param _symbol A stock symbol
      * @param _divisor Number of existing shares that will equal 1 new share
      * @param _price The current stock price. Remainder shares will sold at this price
@@ -176,18 +183,38 @@ contract StockPortfolio is Ownable {
         }
     }
 
+    /**
+     * @dev Get the number of markets
+     * @return uint
+     */
     function getMarketsCount() public view returns(uint) {
         return markets.length;
     }
 
+    /**
+     * @dev Get a market at a given index
+     * @param _index The market index
+     * @return bytes6 market name
+     */
     function getMarket(uint _index) public view returns(bytes6) {
         return markets[_index];
     }
 
+    /**
+     * @dev Get profits
+     * @param _market The market name
+     * @return int
+     */
     function getProfits(bytes6 _market) public view returns(int) {
         return profits[_market];
     }
 
+    /**
+     * @dev Gets a position
+     * @param _stockKey The stock key
+     * @return quantity Quantity of shares held
+     * @return avgPrice Average price paid for shares
+     */
     function getPosition
     (
         bytes12 _stockKey
@@ -205,6 +232,14 @@ contract StockPortfolio is Ownable {
         avgPrice = position.avgPrice;
     }
 
+    /**
+     * @dev Gets a postion at the given index
+     * @param _index The index of the holding
+     * @return market Market name
+     * @return stock Stock name
+     * @return quantity Quantity of shares held
+     * @return avgPrice Average price paid for shares
+     */  
     function getPositionFromHolding
     (
         uint _index
@@ -226,15 +261,29 @@ contract StockPortfolio is Ownable {
         avgPrice = position.avgPrice;
     }
 
+    /**
+     * @dev Get the number of stocks being held
+     * @return uint
+     */
     function getHoldingsCount() public view returns(uint) {
         return holdings.length;
     }
 
+    /**
+     * @dev Gets the stock key at the given index
+     * @return bytes32 The unique stock key
+     */
     function getHolding(uint _index) public view returns(bytes12) {
         return holdings[_index];
     }
 
-    function getStockKey(bytes6 _market, bytes6 _symbol) public pure returns (bytes12 key) {
+    /**
+     * @dev Generates a unique key for a stock by combining the market and symbol
+     * @param _market Stock market
+     * @param _symbol Stock symbol
+     * @return key The key
+     */
+    function getStockKey(bytes6 _market, bytes6 _symbol) public pure returns(bytes12 key) {
         bytes memory combined = new bytes(12);
         for (uint i = 0; i < 6; i++) {
             combined[i] = _market[i];
@@ -247,6 +296,12 @@ contract StockPortfolio is Ownable {
         }
     }
     
+    /**
+     * @dev Splits a unique key for a stock and returns the market and symbol
+     * @param _key Unique stock key
+     * @return market Stock market
+     * @return symbol Stock symbol
+     */
     function recoverStockKey(bytes12 _key) public pure returns(bytes6 market, bytes6 symbol) {
         bytes memory _market = new bytes(6);
         bytes memory _symbol = new bytes(6);
@@ -266,21 +321,11 @@ contract StockPortfolio is Ownable {
         markets.push(_market);
     }
 
-    function _addHolding
-    (
-        bytes12 _stockKey
-    )
-        private
-    {
+    function _addHolding(bytes12 _stockKey) private {
         holdings.push(_stockKey);
     }
 
-    function _removeHolding
-    (
-        bytes12 _stockKey
-    )
-        private
-    {
+    function _removeHolding(bytes12 _stockKey) private {
         if (holdings.length == 0) {
             return;
         }
