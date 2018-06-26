@@ -140,4 +140,48 @@ contract('StockPortfolio', async (accounts) => {
       assert.equal(holding, stock.key, 'key');
     }
   });
+
+  it('should track splits', async () => {
+    const stock = this.stocks[0];
+    const multiple = 3
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    let splitTransaction = await this.sp.split(this.markets[stock.market].index, web3.toHex(stock.symbol), multiple);
+
+    let position = await this.sp.getPosition(stock.key);
+    assert.equal(position[0].toNumber(), stock.quantity * multiple, 'quantity set');
+    assert.equal(position[1].toNumber(), Math.floor((stock.price * 100) / multiple), 'price set');
+
+    let holding = await this.sp.getHolding(0);
+    assert.equal(holding, stock.key, 'symbol');
+
+    let split = splitTransaction.logs[0].args;
+    assert.equal(toAsciiClean(split.market), stock.market, 'market');
+    assert.equal(toAsciiClean(split.symbol), stock.symbol, 'symbol');
+    assert.equal(split.multiple, multiple, 'multiple');
+  });
+
+  it('should track reverse splits', async () => {
+    const stock = this.stocks[0];
+    const divisor = 4
+    const remainder = stock.quantity % divisor;
+    const price = stock.price - 2;
+    await this.sp.buy(this.markets[stock.market].index, web3.toHex(stock.symbol), stock.quantity, stock.price * 100);
+    let splitTransaction = await this.sp.reverseSplit(this.markets[stock.market].index, web3.toHex(stock.symbol), divisor, price);
+
+    let position = await this.sp.getPosition(stock.key);
+    assert.equal(position[0].toNumber(), Math.floor((stock.quantity - remainder) / divisor), 'quantity set');
+    assert.equal(position[1].toNumber(), Math.floor(stock.price * 100 * divisor), 'price set');
+
+    let holding = await this.sp.getHolding(0);
+    assert.equal(holding, stock.key, 'stock key');
+
+    let split = splitTransaction.logs[0].args;
+    assert.equal(toAsciiClean(split.market), stock.market, 'market');
+    assert.equal(toAsciiClean(split.symbol), stock.symbol, 'symbol');
+    assert.equal(split.divisor, divisor, 'divisor');
+
+    let expectedProfits = (remainder * (price - stock.price));
+    let profits = await this.sp.getProfits(this.markets[stock.market].hex);
+    assert.equal(Math.round(profits.toNumber() / 100), expectedProfits, 'profits');
+  });
 });

@@ -24,7 +24,7 @@ contract StockPortfolio is Ownable {
 
     event Bought(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price, uint256 timestamp);
     event Sold(bytes6 market, bytes6 symbol, uint32 quantity, uint32 price, int64 profits, uint256 timestamp);
-    event ForwardSplit(bytes6 market, bytes6 symbol, uint8 mulitple, uint256 timestamp);
+    event ForwardSplit(bytes6 market, bytes6 symbol, uint8 multiple, uint256 timestamp);
     event ReverseSplit(bytes6 market, bytes6 symbol, uint8 divisor, uint256 timestamp);
 
     // Profits have to be separated because of different curriences so
